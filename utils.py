@@ -1,3 +1,4 @@
+from collections import deque
 import numpy as np
 import pandas as pd
 
@@ -117,6 +118,7 @@ class Trpf(): # Check route ~ road
         self.report_counts = np.zeros((round_count, route_count))
         self.reports = np.zeros((round_count, route_count))
         self.current_round = -1
+        self.trpf_history = deque(np.ones((5, route_count)), 5)
 
     def start_new_round(self):
         self.current_round += 1
@@ -133,8 +135,8 @@ class Trpf(): # Check route ~ road
 
     def _calculate_route_trpf(self, route):
         memory = self.current_round - self.memory_length
-        route_report_sum = np.sum(self.reports[memory:self.current_round,route])
-        route_report_count = np.sum(self.report_counts[memory:self.current_round,route])
+        route_report_sum = np.sum(self.reports[memory:self.current_round+1,route])
+        route_report_count = np.sum(self.report_counts[memory:self.current_round+1,route])
         if route_report_count == 0:
             return 1
         else:
@@ -142,8 +144,13 @@ class Trpf(): # Check route ~ road
             return route_trpf
     
     def calculate_trpf(self):
-        trpf = np.array(list(map(self._calculate_route_trpf,range(self.route_count)))) 
-        return trpf
+        new_trpf = np.array(list(map(self._calculate_route_trpf,range(self.route_count)))) 
+        self.trpf_history.append(new_trpf)
+        trpf = np.average(self.trpf_history, axis=0)
+        if self.current_round > 200:
+            return trpf
+        else:
+            return new_trpf
 
 def read_config(config_file, road_params_file):
     with open(config_file, 'r') as f:
