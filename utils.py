@@ -1,24 +1,26 @@
 from collections import deque
+from itertools import repeat
 import numpy as np
 import pandas as pd
 
 class Agent():
-    def __init__(self, tag, tresholds, weights, route_count, change_percent, trpf_use_percent):
+    def __init__(self, tag, tresholds, weights, trip, routes, change_percent, trpf_use_percent):
         self.tag = tag
         sorted_inds = np.argsort(np.array(tresholds))[::-1]
         self.tresholds = np.array(tresholds)[sorted_inds]
         self.weights = np.array(weights)[sorted_inds]
         self.change_percent = change_percent
-        self.route_count = route_count
-        self.routes = np.arange(route_count)
-        self.last_choice = np.random.randint(route_count)
-        self.route_travel_counts = np.zeros(route_count)
-        self.historic_route_costs = np.zeros(route_count)
+        self.route_count = len(routes[trip])
+        self.trip = trip
+        self.routes = np.arange(self.route_count)
+        self.last_choice = np.random.randint(self.route_count)
+        self.route_travel_counts = np.zeros(self.route_count)
+        self.historic_route_costs = np.zeros(self.route_count)
 
         if np.random.rand() < trpf_use_percent:
             self._uses_trpf = True
             self.choose_route = self.__choose_trpf_route
-            self.trpf = np.ones(route_count)
+            self.trpf = np.ones(self.route_count)
         else:
             self._uses_trpf = False
             self.choose_route = self.__choose_rand_route
@@ -34,7 +36,7 @@ class Agent():
                 route_choice = np.random.randint(self.route_count)
                 self.route_travel_counts[route_choice] += 1
                 self.last_choice = route_choice
-                return route_choice
+                return self.trip, route_choice
             
             else:
                 min_cost = np.amin(self.historic_route_costs)
@@ -48,12 +50,12 @@ class Agent():
                 route_choice = np.random.choice(options)
                 self.route_travel_counts[route_choice] += 1
                 self.last_choice = route_choice
-                return route_choice
+                return self.trip, route_choice
 
         else:
             route_choice = self.last_choice
             self.route_travel_counts[route_choice] += 1
-            return route_choice
+            return self.trip, route_choice
 
     def __choose_trpf_route(self):
         decide = np.random.rand()
@@ -69,12 +71,12 @@ class Agent():
             route_choice = np.random.choice(options)
             self.route_travel_counts[route_choice] += 1
             self.last_choice = route_choice
-            return route_choice
+            return self.trip, route_choice
 
         else:
             route_choice = self.last_choice
             self.route_travel_counts[route_choice] += 1
-            return route_choice
+            return self.trip, route_choice
 
 
     def recieve_travel_cost(self, new_cost):
@@ -92,8 +94,8 @@ class Agent():
         else:
             return 0
 
-    def recieve_trpf(self, trpf):
-        self.trpf = trpf
+    def recieve_trpf(self, trpfs):
+        self.trpf = trpfs[self.trip]
 
 class Road():
     def __init__(self, start_node, end_node, alpha, beta):
@@ -110,15 +112,15 @@ class Road():
         return self.alpha + self._traveller_count * self.beta
 
 
-class Trpf(): # Check route ~ road
-    def __init__(self, route_count, round_count, memory_length):
-        self.route_count = route_count
+class Trpf():
+    def __init__(self, routes, round_count, memory_length):
+        self.routes = routes
         self.round_count = round_count
         self.memory_length = memory_length
-        self.report_counts = np.zeros((round_count, route_count))
-        self.reports = np.zeros((round_count, route_count))
+        self.report_counts = {i[0] : np.ones((round_count, len(i[1]))) for i in routes.items()}
+        self.reports = {i[0] : np.zeros((round_count, len(i[1]))) for i in routes.items()}
         self.current_round = -1
-        self.trpf_history = deque(np.ones((5, route_count)), 5)
+        #self.trpf_history = deque(np.ones((5, route_count)), 5)  #Commented out the moving average
 
     def start_new_round(self):
         self.current_round += 1
@@ -129,14 +131,14 @@ class Trpf(): # Check route ~ road
         else:
             return True
 
-    def recieve_report(self, route, report):
-        self.report_counts[self.current_round, route] += 1
-        self.reports[self.current_round, route] += report
+    def recieve_report(self, trip, route, report):
+        self.report_counts[trip][self.current_round, route] += 1
+        self.reports[trip][self.current_round, route] += report
 
-    def _calculate_route_trpf(self, route):
+    def _calculate_route_trpf(self, trip, route):
         memory = self.current_round - self.memory_length
-        route_report_sum = np.sum(self.reports[memory:self.current_round+1,route])
-        route_report_count = np.sum(self.report_counts[memory:self.current_round+1,route])
+        route_report_sum = np.sum(self.reports[trip][memory:self.current_round+1,route])
+        route_report_count = np.sum(self.report_counts[trip][memory:self.current_round+1,route])
         if route_report_count == 0:
             return 1
         else:
@@ -144,13 +146,14 @@ class Trpf(): # Check route ~ road
             return route_trpf
     
     def calculate_trpf(self):
-        new_trpf = np.array(list(map(self._calculate_route_trpf,range(self.route_count)))) 
-        self.trpf_history.append(new_trpf)
-        trpf = np.average(self.trpf_history, axis=0)
-        if self.current_round > 200:
-            return trpf
-        else:
-            return new_trpf
+        new_trpf = {np.array(list(map(self._calculate_route_trpf,repeat(i[0]), i[1]))) \
+            for i in self.routes.items()} 
+        #self.trpf_history.append(new_trpf)                      #Commented out the moving average
+        #trpf = np.average(self.trpf_history, axis=0)
+        #if self.current_round > 200:
+        #   return trpf
+        #else:
+        return new_trpf
 
 def read_config(config_file, road_params_file):
     with open(config_file, 'r') as f:
@@ -158,59 +161,69 @@ def read_config(config_file, road_params_file):
 
         while line[:4] != 'w = ':
             line = next(f)
-        congestion_params = line.split(' = ')[1].split(', ')
+        
         tresholds = []
         weights = []
+        congestion_params = line.split(' = ')[1].split(', ')
         for params in congestion_params:
             tresholds.append(int(params.split(':')[0]))
             weights.append(int(params.split(':')[1]))
-
+        assert len(tresholds) == len(weights)
+        
         while line[:4] != 'p = ':
             line = next(f)
         trpf_use_percent = float(line.split(' = ')[1])
-
+        assert 0 <= trpf_use_percent <= 1
+        
         while line[:4] != 'T = ':
             line = next(f)
         t = int(line.split(' = ')[1])
-
-        while line[:13] != 'num_agents = ':
+        assert t >= 0
+        
+        while line[:10] != 'num_agents':
             line = next(f)
-        agent_count = int(line.split(' = ')[1])
+        
+        agent_counts = []
+        while line[:10] == 'num_agents':
+            agent_count = int(line.split('num_agents_')[1].split(' = ')[1])
+            agent_counts.append(agent_count)
+            assert agent_count >= 0
+            line = next(f)
        
         while line[:4] != 'G = ':
             line = next(f)
         change_percent = float(line.split(' = ')[1])
+        assert 0 <= change_percent <= 1
 
         while line[:5] != 'route':
             line = next(f)
-        routes = []
+        
+        routes = {i: [] for i in range(len(agent_counts))}
         while line[:5] == 'route':
-            routes.append(line.split(' = ')[1][:-1].split(','))
+            trip = int(line.split('_')[1])
+            routes[trip].append(line.split(' = ')[1][:-1].split(','))
             line = next(f)
 
         while line[:5] != 'route':
             line = next(f)
-        route_opts = []
+                                
+        route_opts = {i: [] for i in range(len(agent_counts))}
         while line[:5] == 'route':
-            route_opts.append(int(line.split(' = ')[1][:-1]))
+            trip = int(line.split('_')[1])
+            opt = int(line.split(' = ')[1])
+            route_opts[trip].append(opt)
             line = next(f)
+        assert len(routes) == len(route_opts)
 
         while line[:17] != 'num_iterations = ':
             line = next(f)
         round_count = int(line.split(' = ')[1])
-
+        assert round_count > 0
+        
     road_params = pd.read_csv(road_params_file, skiprows=0)
 
     config = {'tresholds': tresholds, 'weights' : weights, 'trpf_use_percent': trpf_use_percent, \
-            't': t, 'agent_count': agent_count, 'change_percent': change_percent, 'routes': routes, \
+            't': t, 'agent_counts': agent_counts, 'change_percent': change_percent, 'routes': routes, \
             'route_opts': route_opts, 'round_count': round_count, 'road_params': road_params}
-
-    assert len(tresholds) == len(weights)
-    assert 0 <= trpf_use_percent <= 1
-    assert t >= 0
-    assert agent_count > 0
-    assert 0 <= change_percent <= 1
-    assert len(routes) == len(route_opts)
-    assert round_count > 0
 
     return config
