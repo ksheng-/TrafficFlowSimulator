@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 
 class Agent():
+    # choose_route method is defined inside __init__
     def __init__(self, tag, tresholds, weights, trip, routes, change_percent, trpf_use_percent):
         self.tag = tag
         sorted_inds = np.argsort(np.array(tresholds))[::-1]
@@ -79,9 +80,10 @@ class Agent():
             return self.trip, route_choice
 
 
-    def recieve_travel_cost(self, new_cost):
-        count = self.route_travel_counts[self.last_choice]
+    def recieve_travel_cost(self, route_costs):
+        new_cost = route_costs[self.trip][self.last_choice]
         previous_cost = self.historic_route_costs[self.last_choice]
+        count = self.route_travel_counts[self.last_choice]        
         self.historic_route_costs[self.last_choice] = (previous_cost * (count-1) + new_cost) / count
 
     def report_congestion(self, excess_car_count):
