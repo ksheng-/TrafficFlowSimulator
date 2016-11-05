@@ -86,15 +86,15 @@ class Agent():
         count = self.route_travel_counts[self.last_choice]        
         self.historic_route_costs[self.last_choice] = (previous_cost * (count-1) + new_cost) / count
 
-    def report_congestion(self, excess_car_count):
-        congestion_levels = np.where(self.tresholds <= excess_car_count, self.tresholds, 0)
+    def report_congestion(self, excess_car_counts):
+        congestion_levels = np.where(self.tresholds <= excess_car_counts[self.trip][self.last_choice], self.tresholds, 0)
 
         if congestion_levels[-1]: # Least treshold is bigger than excess_car_count
             congestion = congestion_levels.argmax()
-            return self.weights[congestion]
+            return self.trip, self.last_choice, self.weights[congestion]
 
         else:
-            return 0
+            return self.trip, self.last_choice, 0
 
     def recieve_trpf(self, trpfs):
         self.trpf = trpfs[self.trip]
@@ -138,7 +138,7 @@ class Trpf():
         self.reports[trip][self.current_round, route] += report
 
     def _calculate_route_trpf(self, trip, route):
-        memory = self.current_round - self.memory_length
+        memory = np.max(self.current_round - self.memory_length, 0)
         route_report_sum = np.sum(self.reports[trip][memory:self.current_round+1,route])
         route_report_count = np.sum(self.report_counts[trip][memory:self.current_round+1,route])
         if route_report_count == 0:
@@ -148,7 +148,7 @@ class Trpf():
             return route_trpf
     
     def calculate_trpf(self):
-        new_trpf = {np.array(list(map(self._calculate_route_trpf,repeat(i[0]), i[1]))) \
+        new_trpf = {i[0]: np.array(list(map(self._calculate_route_trpf,repeat(i[0]), i[1]))) \
             for i in self.routes.items()} 
         #self.trpf_history.append(new_trpf)                      #Commented out the moving average
         #trpf = np.average(self.trpf_history, axis=0)
