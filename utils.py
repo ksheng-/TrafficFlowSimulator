@@ -212,7 +212,7 @@ def read_config(config_file, road_params_file):
         route_opts = {i: [] for i in range(len(agent_counts))}
         while line[:5] == 'route':
             trip = int(line.split('_')[1])
-            opt = int(line.split(' = ')[1])
+            opt = float(line.split(' = ')[1])
             route_opts[trip].append(opt)
             line = next(f)
         assert len(routes) == len(route_opts)
