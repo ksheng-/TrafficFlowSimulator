@@ -1,5 +1,6 @@
 node 1,node 2,free flow travel time,driver dependent time
 S1,A,10,0
+S1,W0,0,0
 S2,V1,0,0
 S2,W0,0,0
 A,W1,0,0
