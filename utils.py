@@ -229,3 +229,37 @@ def read_config(config_file, road_params_file):
             'route_opts': route_opts, 'round_count': round_count, 'road_params': road_params}
 
     return config
+
+def get_route_choices(agents, routes):
+    choices = np.array(list(map(lambda agent: agent.choose_route(), agents)))
+    
+    route_traveller_counts = {i[0]: np.zeros(len(i[1])) for i in routes.items()}
+    for trip, route in choices:
+        route_traveller_counts[trip][route] += 1
+    #route_traveller_counts = np.bincount(choices[0,:], minlength = route_count)[:, np.newaxis]
+    
+    return choices, route_traveller_counts
+
+def get_route_costs(roads, choices, route_traveller_counts, route_to_road, road_to_route):
+    trip_road_traveller_counts = {i[0]: np.dot(j[1], i[1]) \
+        for i, j in zip(route_traveller_counts.items(), route_to_road.items())}
+    
+    road_traveller_counts = 0
+    for i, trip_road_traveller_count in trip_road_traveller_counts.items():
+        road_traveller_counts += trip_road_traveller_count
+    
+    list(map(lambda count, road: road.add_travellers(count), road_traveller_counts, roads))
+    road_costs = np.array(list(map(lambda road: road.report_cost(), roads)))
+    route_costs = {i[0]: np.dot( i[1], road_costs)  for i in road_to_route.items()}
+    return route_costs
+
+def give_costs(agents, route_costs):    
+    list(map(lambda agent, route_costs: agent.recieve_travel_cost(route_costs), agents, repeat(route_costs)))
+    
+def get_reports(trpf_agents, trpf, choices, excess_traveller_counts):
+    reports = list(map(lambda agent, excess: agent.report_congestion(excess),\
+        trpf_agents, repeat(excess_traveller_counts)))
+    list(map(lambda report: trpf.recieve_report(*report), reports))
+    
+def give_trpfs(trpf_agents, route_trpfs):
+    list(map(lambda agent, trpf: agent.recieve_trpf(trpf), trpf_agents, repeat(route_trpfs)))
