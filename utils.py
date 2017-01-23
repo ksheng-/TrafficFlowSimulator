@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 
 class Agent():
-    # choose_route method is defined inside __init__
+    """This object chooses a road based on given probabilities."""
     def __init__(self, tag, tresholds, weights, trip, routes, change_percent, trpf_use_percent):
         self.tag = tag
         sorted_inds = np.argsort(np.array(tresholds))[::-1]
@@ -17,7 +17,8 @@ class Agent():
         self.last_choice = np.random.randint(self.route_count)
         self.route_travel_counts = np.zeros(self.route_count)
         self.historic_route_costs = np.zeros(self.route_count)
-
+        
+        # choose_route method is defined here
         if np.random.rand() < trpf_use_percent:
             self._uses_trpf = True
             self.choose_route = self.__choose_trpf_route
@@ -100,6 +101,7 @@ class Agent():
         self.trpf = trpfs[self.trip]
 
 class Road():
+    """This class simulates road congestion."""
     def __init__(self, start_node, end_node, alpha, beta):
         self.start_node = start_node
         self.end_node = end_node
@@ -115,6 +117,7 @@ class Road():
 
 
 class Trpf():
+    """This object assignes roads points so that trafic converges to a syste optimum."""
     def __init__(self, routes, round_count, memory_length):
         self.routes = routes
         self.round_count = round_count
@@ -158,6 +161,7 @@ class Trpf():
         return new_trpf
 
 def read_config(config_file, road_params_file):
+    """This function parses the configuration files."""
     with open(config_file, 'r') as f:
         line = next(f)
 
@@ -172,16 +176,34 @@ def read_config(config_file, road_params_file):
             weights.append(int(params.split(':')[1]))
         assert len(tresholds) == len(weights)
         
-        while line[:4] != 'p = ':
+        while line[:8] != 'p_values':
             line = next(f)
-        trpf_use_percent = float(line.split(' = ')[1])
-        assert 0 <= trpf_use_percent <= 1
         
-        while line[:4] != 'T = ':
+        if line[11] == '[':
+            p_values = [float(p) for p in line.split(' = ')[1][1:-2].split(',')]
+        elif line[11] == '(':
+            params = [float(param) for param in line.split(' = ')[1][1:-2].split(',')]
+            p_values = np.linspace(*params)
+        else:
+            p_values = [float(line.split(' = ')[1])]
+        
+        while line[:11] != 't_values = ':
             line = next(f)
-        t = int(line.split(' = ')[1])
-        assert t >= 0
         
+        if line[11] == '[':
+            t_values = [int(t) for t in line.split(' = ')[1][1:-2].split(',')]
+        else:
+            t_values = [int(line.split(' = ')[1])]
+
+        while line[:4] != 'trip':
+            line = next(f)
+            
+        trip_names = []
+        while line[:4] == 'trip':
+            trip_name = line.split('trip_')[1].split(' = ')[1][:-1]
+            trip_names.append(trip_name)
+            line = next(f)
+       
         while line[:10] != 'num_agents':
             line = next(f)
         
@@ -192,10 +214,16 @@ def read_config(config_file, road_params_file):
             assert agent_count >= 0
             line = next(f)
        
-        while line[:4] != 'G = ':
+        while line[:11] != 'g_values = ':
             line = next(f)
-        change_percent = float(line.split(' = ')[1])
-        assert 0 <= change_percent <= 1
+        
+        if line[11] == '[':
+            g_values = [float(g) for g in line.split(' = ')[1][1:-2].split(',')]
+        elif line[11] == '(':
+            params = [float(param) for param in line.split(' = ')[1][1:-2].split(',')]
+            g_values = np.linspace(*params)
+        else:
+            g_values = [float(line.split(' = ')[1])]
 
         while line[:5] != 'route':
             line = next(f)
@@ -206,12 +234,12 @@ def read_config(config_file, road_params_file):
             routes[trip].append(line.split(' = ')[1][:-1].split(','))
             line = next(f)
 
-        while line[:5] != 'route':
+        while line[:9] != 'route_opt':
             line = next(f)
                                 
         route_opts = {i: [] for i in range(len(agent_counts))}
-        while line[:5] == 'route':
-            trip = int(line.split('_')[1])
+        while line[:9] == 'route_opt':
+            trip = int(line.split('_')[2])
             opt = float(line.split(' = ')[1])
             route_opts[trip].append(opt)
             line = next(f)
@@ -224,13 +252,15 @@ def read_config(config_file, road_params_file):
         
     road_params = pd.read_csv(road_params_file, skiprows=0)
 
-    config = {'tresholds': tresholds, 'weights' : weights, 'trpf_use_percent': trpf_use_percent, \
-            't': t, 'agent_counts': agent_counts, 'change_percent': change_percent, 'routes': routes, \
-            'route_opts': route_opts, 'round_count': round_count, 'road_params': road_params}
+    config = {'tresholds': tresholds, 'weights' : weights, 'g_values': g_values, 't_values': t_values, \
+        'agent_counts': agent_counts, 'p_values': p_values, 'routes': routes, 'route_opts': route_opts, \
+        'round_count': round_count, 'road_params': road_params, 'trip_names': trip_names}
 
     return config
 
 def get_route_choices(agents, routes):
+    """This function gets choices from agents and returns choices in an array with shape (trip_count, agent_count)
+       and traveller counts in a dictionary with an array shaped (trip_route_count,) for each trip."""
     choices = np.array(list(map(lambda agent: agent.choose_route(), agents)))
     
     route_traveller_counts = {i[0]: np.zeros(len(i[1])) for i in routes.items()}
@@ -241,6 +271,8 @@ def get_route_choices(agents, routes):
     return choices, route_traveller_counts
 
 def get_route_costs(roads, choices, route_traveller_counts, route_to_road, road_to_route):
+    """This function takes the choices and returns the route costs in a dictionary with an array 
+       shaped (trip_route_count,) for each trip."""
     trip_road_traveller_counts = {i[0]: np.dot(j[1], i[1]) \
         for i, j in zip(route_traveller_counts.items(), route_to_road.items())}
     
@@ -254,12 +286,15 @@ def get_route_costs(roads, choices, route_traveller_counts, route_to_road, road_
     return route_costs
 
 def give_costs(agents, route_costs):    
+    """This functions gives the route costs to the agents."""
     list(map(lambda agent, route_costs: agent.recieve_travel_cost(route_costs), agents, repeat(route_costs)))
     
 def get_reports(trpf_agents, trpf, choices, excess_traveller_counts):
+    """This function gets the reports from agents and gives them to trpf."""
     reports = list(map(lambda agent, excess: agent.report_congestion(excess),\
         trpf_agents, repeat(excess_traveller_counts)))
     list(map(lambda report: trpf.recieve_report(*report), reports))
     
 def give_trpfs(trpf_agents, route_trpfs):
+    """This function gives the trpf scores to the agents."""
     list(map(lambda agent, trpf: agent.recieve_trpf(trpf), trpf_agents, repeat(route_trpfs)))
