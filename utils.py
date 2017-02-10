@@ -32,9 +32,9 @@ class Agent():
 
     def __choose_rand_route(self):
         decide = np.random.rand()
-        
+        explore = np.random.rand()
         if decide <  self.change_percent:
-            if decide < 0.05:
+            if explore < 0.05:
                 route_choice = np.random.randint(self.route_count)
                 self.route_travel_counts[route_choice] += 1
                 self.last_choice = route_choice
