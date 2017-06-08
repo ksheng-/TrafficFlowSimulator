@@ -1,0 +1,7 @@
+__pycache__
+*.bak
+*.swp
+*.swo
+*.xlsx
+*.csv
+

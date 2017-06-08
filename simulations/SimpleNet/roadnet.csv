@@ -1,5 +1,0 @@
-#node 1, node 2,free flow traveltime,driver dependent time
-S,M,20,0
-M,D,20,0
-S,N,20,0
-N,D,0,0.1
