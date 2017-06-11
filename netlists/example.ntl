@@ -1,0 +1,85 @@
+### Example simulator netlist file ############################################
+
+# This is a comment. 
+# Statements are delimited by any arbitrary whitespace
+
+
+
+### Network definition statements #############################################
+
+# type: declare network type
+# usage: type [multiod | singleod]
+#   defaults to singleod
+type multiod 
+
+# edge: describe the topology in terms of edges
+# usage: edge_name start_node end_node [fft=0] [ddt=0]
+#   fft (free flow time) and ddt (driver dependent time) kwargs are optional
+#       and default to 0
+edge S1 P  fft=0  ddt=0
+edge P  Q  fft=20 ddt=0
+edge Q  D1 fft=0  ddt=0
+edge S1 M  fft=0  ddt=0
+edge M  N  fft=0  ddt=0.1
+edge N  D1 fft=0  ddt=0
+edge S2 R  fft=0  ddt=0
+edge R  S  fft=20 ddt=0
+edge S  D2 fft=0  ddt=0
+edge S2 M  fft=0  ddt=0
+edge M  N  fft=0  ddt=0.1
+edge N  D2 fft=0  ddt=0
+
+### Trip and route definition statements ######################################
+trip index=0 routes=2 name=S1D1 agents=200
+trip index=1 routes=2 name=S2D2 agents=200
+
+route S1,P,Q,D1 trip=0 route=0 so=175
+route S1,M,N,D1 trip=0 route=1 so=25
+route S2,M,N,D2 trip=1 route=0 so=25
+route S2,R,S,D2 trip=1 route=1 so=175
+
+
+### Algorithm setting statements ##############################################
+weights 5:3 20:5 50:7
+weights 10:3 20:5 50:7
+weights 15:3 20:5 50:7
+
+weights 10:3 10:5 50:7
+weights 10:3 20:5 50:7
+weights 10:3 30:5 50:7
+
+weights 10:3 20:5 25:7
+weights 10:3 20:5 50:7
+weights 10:3 20:5 75:7
+
+weights 10:1 20:5 50:7
+weights 10:3 20:5 50:7
+weights 10:5 20:5 50:7
+
+weights 10:3 20:3 50:7
+weights 10:3 20:5 50:7
+weights 10:3 20:7 50:7
+
+weights 10:3 20:5 50:5
+weights 10:3 20:5 50:7
+weights 10:3 20:5 50:9
+
+
+
+### Analysis statements #######################################################
+
+# trpf: run the simulation over every combination of g, t, p
+# usage: trpf g=values t=values p=values [steps=200]
+#   g: fraction of agents that change routes per iteration
+#   t: number of previous rounds to take into account in the TRPF
+#   p: fraction of agents that use the TRPF
+#   steps: number of iterations to run the simulation, defaults to 200 
+#   Where values is any valid Python expression that returns an iterator over
+#       numeric values, ex "[0,1,2]", "range(3)". 
+#       The expression should be quoted
+trpf g=0.5 t=3 p=.7 steps=200
+
+
+
+
+

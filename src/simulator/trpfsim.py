@@ -1,4 +1,4 @@
-import ast, shlex, os, pprint, numbers
+import ast, shlex, os, pprint
 import numpy as np
 import pandas as pd
 from collections import deque
@@ -48,14 +48,16 @@ def loadsim(netlist):
             if line[0] == '#' or len(line.strip()) == 0:
                 continue
 
+            print(line.lower().strip())
             args = shlex.split(line.lower().strip())
             command = args.pop(0)
 
             kwargs = {arg.split('=')[0]: arg.split('=')[1]
                       for arg in args if '=' in arg}
             posargs = [arg for arg in args if '=' not in arg]
+            print(posargs)
+            print(kwargs)
 
-            # TODO: don't think this needs to be specified
             if command == 'type' and args[0] == 'multiod':
                 pass
             else:
@@ -103,27 +105,14 @@ def loadsim(netlist):
 
             if command == 'trpf':
                 if len(args) >= 3:
-                    gvals = ast.literal_eval(kwargs['g'])
-                    if isinstance(gvals, list):
-                        properties['trpf']['g'] = gvals
-                    elif isinstance(gvals, numbers.Number):
-                        properties['trpf']['g'] = [gvals]
-                    
-                    tvals = ast.literal_eval(kwargs['t'])
-                    if isinstance(tvals, list):
-                        properties['trpf']['t'] = tvals
-                    elif isinstance(tvals, numbers.Number):
-                        properties['trpf']['t'] = [tvals]
-                        
-                    pvals = ast.literal_eval(kwargs['p'])
-                    if isinstance(pvals, list):
-                        properties['trpf']['p'] = pvals
-                    elif isinstance(pvals, numbers.Number):
-                        properties['trpf']['p'] = [pvals]
-                
+                    properties['trpf']['g'] = ast.literal_eval(kwargs['g'])
+                    properties['trpf']['t'] = ast.literal_eval(kwargs['t'])
+                    properties['trpf']['p'] = ast.literal_eval(kwargs['p'])
                 if 'steps' in kwargs:
                     properties['steps'] = int(kwargs['steps'])
-
+        pp = pprint.PrettyPrinter(indent=4)
+        pp.pprint(properties)
+                
     return properties
 
 class Agent():
@@ -420,16 +409,15 @@ def simulate(thresholds, weights, agent_counts, route_opts, routes,
     trips = trip_names
     aggrs = ['Average', 'Std']
     columns = pd.MultiIndex.from_product([trips, aggrs])
-    weightstr = '|'.join(['{}:{}'.format(t, w) for t, w  in zip(thresholds, weights)])
-    index = pd.MultiIndex.from_tuples([(weightstr, change_percent, t, trpf_use_percent)], names=['Thresholds', 'G', 'T', 'P'])
+    index = pd.MultiIndex.from_tuples([(change_percent, t, trpf_use_percent)], names=['G', 'T', 'P'])
 
     report = pd.DataFrame(stats, index=index, columns=columns)
-    print(report.to_string())
+    print(report)
 
     # Add the report to the excel
     try:
-        xl = pd.read_excel(outfile, header=[0,1], index_col=[0,1,2,3], sheetname=simulation_name)
-        xl.loc[weightstr, change_percent, t, trpf_use_percent] = report.values.flatten()
+        xl = pd.read_excel(outfile, header=[0,1], index_col=[0,1,2], sheetname=simulation_name)
+        xl.loc[change_percent, t, trpf_use_percent] = report.values.flatten()
         writer = pd.ExcelWriter(outfile, engine='xlsxwriter')
         xl.to_excel(writer, sheet_name=simulation_name)
         writer.save()
@@ -440,17 +428,16 @@ def simulate(thresholds, weights, agent_counts, route_opts, routes,
 
     return data, data2, report
 
-def run_simulations(properties, save=True, filename=None):
-    if save:
-        if filename:
-            filename.split('.xlsx')[0] + '.xlsx'
-        else:
-            filename = (datetime.now(tz.tzutc()).strftime('%Y%m%dT%H%M%Sz_')
-                        + properties['name'] + '.xlsx')
-        outfile = os.path.join(os.path.dirname(os.path.realpath(__file__)), 
-                               '..', 'outputs', filename)
-    threshold_list = properties['thresholds']
-    weight_list = properties['weights']
+def run_simulations(properties, filename=None):
+    if filename:
+        filename.split('.xlsx')[0] + '.xlsx'
+    else:
+        filename = (datetime.now(tz.tzutc()).strftime('%Y%M%dT%H%M%Sz_')
+                    + properties['name'] + '.xlsx')
+    outfile = os.path.join(os.path.dirname(os.path.realpath(__file__)), 
+                           '..', 'outputs', filename)
+    thresholds = properties['thresholds'][0]
+    weights = properties['weights'][0]  
     agent_counts = properties['agents']
     routes = properties['routes']
     route_opts = properties['optimums']
@@ -458,21 +445,16 @@ def run_simulations(properties, save=True, filename=None):
     road_params = properties['graph']
     trip_names = properties['trips']
     simulation_name = filename.split('.xlsx')[0]
-    values = list(product(properties['trpf']['g'],
-                          properties['trpf']['t'],
-                          properties['trpf']['p']))
+    values = product(properties['trpf']['g'],
+                     properties['trpf']['t'],
+                     properties['trpf']['p'])
     
-    for thresholds, weights in zip(threshold_list, weight_list): 
-        for params in values:
-            data, data2, report = simulate(thresholds, weights, agent_counts, 
-                    route_opts, routes, round_count, road_params, *params, 
-                    simulation_name, trip_names, outfile)
-    return report
+    for params in values:
+        data, data2, report = simulate(thresholds, weights, agent_counts, 
+                route_opts, routes, round_count, road_params, *params, 
+                simulation_name, trip_names, outfile)
 
 
 if __name__ == '__main__':
     properties = loadsim('example')
-    pp = pprint.PrettyPrinter(indent=4)
-    pp.pprint(properties)
-    report = run_simulations(properties)
-    print(report.to_string())
+    run_simulations(properties)

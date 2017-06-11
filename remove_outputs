@@ -1,0 +1,6 @@
+#!/bin/bash
+
+echo 'Removing automatically generated xlsx files:'
+find outputs -regextype sed -regex 'outputs/[0-9]\{8\}T[0-9]\{6\}z_.*.xlsx'
+find outputs -regextype sed -regex 'outputs/[0-9]\{8\}T[0-9]\{6\}z_.*.xlsx' -delete
+ 
