@@ -6,6 +6,5 @@ __pycache__/
 ~$*.xls*
 *.tmp
 *.csv
-
-/outputs
+*.ipynb
 
