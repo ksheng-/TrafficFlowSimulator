@@ -16,27 +16,20 @@ type multiod
 # usage: edge_name start_node end_node [fft=0] [ddt=0]
 #   fft (free flow time) and ddt (driver dependent time) kwargs are optional
 #       and default to 0
-edge S1 P  fft=0  ddt=0
-edge P  Q  fft=20 ddt=0.001
-edge Q  D1 fft=0  ddt=0
-edge S1 M  fft=0  ddt=0
-edge M  N  fft=20 ddt=0.1
-edge N  D1 fft=0  ddt=0
-edge S2 R  fft=0  ddt=0
-edge R  S  fft=20 ddt=0.001
-edge S  D2 fft=0  ddt=0
-edge S2 M  fft=0  ddt=0
-# edge M  N  fft=20  ddt=0.1
-edge N  D2 fft=0  ddt=0
+edge S A fft=20 ddt=0
+edge S B fft=20 ddt=0
+edge A C fft=20 ddt=0
+edge B D fft=20 ddt=0
+edge A D fft=0 ddt=.1
+edge D E fft=20  ddt=0
+edge C E fft=20 ddt=0
 
 ### Trip and route definition statements ######################################
-trip index=0 routes=2 name=S1D1 agents=200
-trip index=1 routes=2 name=S2D2 agents=200
+trip index=0 routes=3 name=SE agents=200
 
-route S1,P,Q,D1 trip=0 route=0 so=175
-route S1,M,N,D1 trip=0 route=1 so=25
-route S2,M,N,D2 trip=1 route=0 so=25
-route S2,R,S,D2 trip=1 route=1 so=175
+route S,A,C,E trip=0 route=0 so=125
+route S,B,D,E trip=0 route=1 so=0
+route S,A,D,E trip=0 route=2 so=75
 
 
 ### Algorithm setting statements ##############################################
