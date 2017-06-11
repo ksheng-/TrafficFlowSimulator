@@ -1,7 +1,11 @@
-__pycache__
+__pycache__/
 *.bak
 *.swp
 *.swo
 *.xlsx
+~$*.xls*
+*.tmp
 *.csv
+
+/outputs
 
