@@ -1,5 +1,7 @@
 import ast, shlex, os, pprint, numbers
 import pandas as pd
+import pygraphviz as pgv
+from IPython.display import Image
 
 def load(netlist):
     """Parse the netlist file, return simulation parameters."""
@@ -129,4 +131,40 @@ def show(netlist):
         for line in f:
             print(line)
 
+def draw(properties, filename):
+    df = properties['graph']
+    edges = zip(df['node 1'].tolist(),
+                df['node 2'].tolist(),
+                df['fft'].tolist(),
+                df['ddt'].tolist())
+    network = pgv.AGraph(strict=False,directed=True)
+    network.node_attr['shape'] = 'circle'
+    network.node_attr['fontsize'] = '12'
+    network.graph_attr['rankdir'] = 'LR'
+    network.edge_attr['fontsize'] = '8' 
+    network.graph_attr['label'] = properties['name'] + '.ntl'
+    #  network.graph_attr['ratio']='.5'
+    for src, dest, fft, ddt in edges:
+        if fft and ddt:
+            network.add_edge(src, dest, label='fft={}, ddt={}'.format(fft, ddt)) 
+        elif fft:
+            network.add_edge(src, dest, label='fft={}'.format(fft))
+        elif ddt: 
+            network.add_edge(src, dest, label='ddt={}'.format(ddt))
+        else: 
+            network.add_edge(src, dest)
 
+        
+    #  print(network.string())
+    
+    network.layout(prog='dot')
+    network.draw(filename)
+    #  Image(filename='network.png') 
+    
+    #  B.layout() # layout with default (neato)
+    #  B.draw('simple.png') # draw png
+    #  print("Wrote simple.png")
+
+if __name__ == '__main__':
+    p = load('example')
+    draw(p, 'network.png')

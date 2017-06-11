@@ -322,16 +322,18 @@ def simulate(thresholds, weights, agent_counts, route_opts, routes,
     return data, data2, report
 
 def run(properties, filename=None, show=False, save=True):
+
+    if filename:
+        filename.split('.xlsx')[0] + '.xlsx'
+    else:
+        filename = (datetime.now(tz.tzutc()).strftime('%Y%m%dT%H%M%Sz_')
+                    + properties['name'] + '.xlsx')
     if save:
-        if filename:
-            filename.split('.xlsx')[0] + '.xlsx'
-        else:
-            filename = (datetime.now(tz.tzutc()).strftime('%Y%m%dT%H%M%Sz_')
-                        + properties['name'] + '.xlsx')
         outfile = os.path.join(os.path.dirname(os.path.realpath(__file__)), 
                                '..', 'outputs', filename)
     else:
         outfile = None
+    
     threshold_list = properties['thresholds']
     weight_list = properties['weights']
     agent_counts = properties['agents']
