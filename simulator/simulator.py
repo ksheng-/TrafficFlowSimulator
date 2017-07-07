@@ -11,9 +11,12 @@ class Agent():
     """This object chooses a road based on given probabilities."""
     def __init__(self, tag, thresholds, weights, trip, routes, change_percent, trpf_use_percent):
         self.tag = tag
-        sorted_inds = np.argsort(np.array(thresholds))[::-1]
-        self.thresholds = np.array(thresholds)[sorted_inds]
-        self.weights = np.array(weights)[sorted_inds]
+        #sorted_inds = np.argsort(np.array(thresholds))[::-1]
+        self.thresholds = np.array(thresholds)
+        for i in range(len(self.thresholds)):
+            for j in range(len(self.thresholds[i])):
+                self.thresholds[i][j] = self.thresholds[i][j][::-1]
+        self.weights = np.array(weights)
         self.change_percent = change_percent
         self.route_count = len(routes[trip])
         self.trip = trip
@@ -92,11 +95,10 @@ class Agent():
         self.historic_route_costs[self.last_choice] = (previous_cost * (count-1) + new_cost) / count
 
     def report_congestion(self, excess_car_counts):
-        congestion_levels = np.where(self.thresholds <= excess_car_counts[self.trip][self.last_choice], self.thresholds, 0)
-
+        congestion_levels = np.where(self.thresholds[int(self.trip)][self.last_choice] <= excess_car_counts[self.trip][self.last_choice], self.thresholds[int(self.trip)][self.last_choice], 0)
         if congestion_levels[-1]: # Least treshold is bigger than excess_car_count
             congestion = congestion_levels.argmax()
-            return self.trip, self.last_choice, self.weights[congestion]
+            return self.trip, self.last_choice, self.weights[int(self.trip)][int(self.last_choice)][congestion]
 
         else:
             return self.trip, self.last_choice, 0
@@ -334,8 +336,8 @@ def run(properties, filename=None, show=False, save=True):
     else:
         outfile = None
     
-    threshold_list = properties['thresholds']
-    weight_list = properties['weights']
+    threshold_list = np.array(properties['thresholds'])
+    weight_list = np.array(properties['weights'])
     agent_counts = properties['agents']
     routes = properties['routes']
     route_opts = properties['optimums']
@@ -348,9 +350,12 @@ def run(properties, filename=None, show=False, save=True):
                           properties['trpf']['p']))
    
     first = True
-    for thresholds, weights in zip(threshold_list, weight_list): 
+    for sets in range(len(weight_list[0][0])):
+        weights_list = weight_list[:,:,sets]
+        thresholds_list = threshold_list[:,:,sets]
+        #print(weights_list)
         for params in values:
-            data, data2, report = simulate(thresholds, weights, agent_counts, 
+            data, data2, report = simulate(thresholds_list, weights_list, agent_counts, 
                     route_opts, routes, round_count, road_params, *params, 
                     simulation_name, trip_names, outfile)
             if show:
