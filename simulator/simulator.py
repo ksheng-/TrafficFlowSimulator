@@ -351,8 +351,18 @@ def run(properties, filename=None, show=False, save=True):
    
     first = True
     for sets in range(len(weight_list[0][0])):
-        weights_list = weight_list[:,:,sets]
-        thresholds_list = threshold_list[:,:,sets]
+        a = []
+        c = []
+        for i in range(len(weight_list)):
+            b = [None]*len(weight_list[i])
+            d = [None]*len(threshold_list[i])
+            for j in range(len(weight_list[i])):
+                b[j] = weight_list[i][j][sets]
+                d[j] = threshold_list[i][j][sets]
+            a.append(b)
+            c.append(d)
+        weights_list = np.array(a)
+        thresholds_list = np.array(c)
         #print(weights_list)
         for params in values:
             data, data2, report = simulate(thresholds_list, weights_list, agent_counts, 
